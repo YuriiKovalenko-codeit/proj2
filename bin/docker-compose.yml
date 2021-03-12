@@ -1,0 +1,12 @@
+version: "3.7"
+
+services:
+    proj2:
+        image: servant-proj2
+        ports:
+            - 8081:8081
+    netshoot:
+        image: nicolaka/netshoot
+        command: ash
+        stdin_open: true
+        tty: true
