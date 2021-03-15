@@ -56,6 +56,7 @@ executable proj2
     , AuthData
     , Client
     , DomainSpecific
+    , Log
     , Server
 
   -- LANGUAGE extensions used by modules in this package.
@@ -65,11 +66,12 @@ executable proj2
   build-depends:
       base >=4.12 && <4.13
     , aeson
-    --, base-compat
     , bytestring
     , containers
+    , fast-logger
     , http-client
     , jose
+    , mtl
     , optparse-generic
     , servant
     , servant-server
