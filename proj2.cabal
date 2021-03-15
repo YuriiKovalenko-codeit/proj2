@@ -59,6 +59,7 @@ executable proj2
     , Keygen
     , Log
     , Server
+    , Server.Config
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -81,6 +82,7 @@ executable proj2
     , servant-auth-server
     , utf8-string
     , warp
+    , yaml
 
   -- Directories containing source files.
   hs-source-dirs:      src

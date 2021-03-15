@@ -4,13 +4,16 @@ module Application where
 
 import AuthData
 import Client
+import Keygen
 import Log
 import Server
 
 import Prelude hiding (log)
 import Options.Generic
 
-data LaunchMode = Client { username :: String, password :: String } | Server
+data LaunchMode = Client { username :: String, password :: String }
+                | Server { configPath :: Maybe FilePath }
+                | KeyGen { output :: FilePath }
     deriving Generic
 
 instance ParseRecord LaunchMode
@@ -19,8 +22,8 @@ run :: IO ()
 run = do
     mode <- getRecord "Client/Server web app"
     (logger, cleanup) <- initLogger
-    pushLog logger "Log system is initialized"
     case mode of
         Client username password -> clientMain $ AuthData username password
-        Server -> serverMain logger
+        Server configPath -> serverMain logger configPath
+        KeyGen outputPath -> keygenMain outputPath
     cleanup

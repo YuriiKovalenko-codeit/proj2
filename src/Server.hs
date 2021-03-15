@@ -9,6 +9,8 @@
 
 module Server where
 
+import Server.Config
+
 import API
 import DomainSpecific
 import Log
@@ -37,8 +39,9 @@ instance FromBasicAuthData AuthenticatedUser where
 
 type API = API' (Auth '[SA.JWT, SA.BasicAuth] AuthenticatedUser)
 
-newtype AppContext = AppContext
+data AppContext = AppContext
     { _logFn :: LogStr -> IO ()
+    , _config :: Config
     }
 
 type HandlerT = ReaderT AppContext Handler
@@ -73,12 +76,16 @@ server3 = position
               liftIO $ log "Login attempt failed"
               throwAll err401
 
+readJWK :: FilePath -> IO JWK
+readJWK keyPath = eitherDecodeFileStrict' keyPath >>= either
+    (error . ("Error while reading key file: " ++) . show)
+    return
+
 mkApp :: Pool Connection -> AppContext -> IO Application
 mkApp connPool appctx = do
-    myKey <- genJWK $ ECGenParam P_256
-    let log = _logFn appctx
-    log . toLogStr . show $ toJSON myKey
-    let jwtCfg = (defaultJWTSettings myKey) { jwtAlg = Just ES256 }
+    jwk <- readJWK $ keyPath $ _config appctx
+    _logFn appctx $ toLogStr $ encode jwk
+    let jwtCfg = (defaultJWTSettings jwk) { jwtAlg = Just ES256 }
         authCfg = authCheck connPool
         cfg = jwtCfg :. defaultCookieSettings :. authCfg :. EmptyContext
         ctx = getCtxProxy cfg
@@ -88,7 +95,8 @@ mkApp connPool appctx = do
         getCtxProxy :: Servant.Context a -> Proxy a
         getCtxProxy _ = Proxy
 
-serverMain :: Logger -> IO ()
-serverMain logger = do
+serverMain :: Logger -> Maybe FilePath -> IO ()
+serverMain logger mConfigPath = do
     connPool <- initConnPool
-    run 8081 =<< mkApp connPool (AppContext (pushLog logger))
+    config <- loadConfig mConfigPath
+    run 8081 =<< mkApp connPool (AppContext (pushLog logger) config)
