@@ -7,6 +7,7 @@ import Data.Aeson
 import Data.ByteString (ByteString)
 import Data.List (intercalate)
 import Data.Map
+import Data.UUID
 import GHC.Generics
 import Servant.Auth.Server
 
@@ -55,24 +56,16 @@ emailForClient c = Email from' to' subject' body'
                ++ intercalate ", " (clientInterestedIn c)
                ++ " products? Give us a visit!"
 
-newtype PrivateInfo = PrivateInfo { userID :: Int }
+newtype PrivateInfo = PrivateInfo { userID :: UserId }
     deriving (Generic, Show)
 
 instance ToJSON PrivateInfo
 instance FromJSON PrivateInfo
 
-type Login = ByteString
-type Password = ByteString
-type DB = Map (Login, Password) AuthenticatedUser
-type Connection = DB
-type Pool a = a
-
-initConnPool :: IO (Pool Connection)
-initConnPool = return $ fromList [ (("user1", "11"), AUser 1)
-                                 , (("user2", "22"), AUser 2) ]
+type UserId = UUID
 
 newtype AuthenticatedUser = AUser
-    { auID :: Int
+    { auID :: UserId
     } deriving (Show, Generic)
 
 instance ToJSON AuthenticatedUser

@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
+
 {-# LANGUAGE TypeFamilies #-}
 
 module Server where
@@ -16,7 +16,12 @@ import DomainSpecific
 import Log
 
 import Data.Aeson
+import Data.ByteString as BS
 import Data.Map as M
+import Data.Maybe
+import Data.Text.Encoding as E
+import Database.Persist
+import Database.Persist.Sql
 import Control.Monad.Except
 import Control.Monad.Reader
 import Crypto.JOSE
@@ -26,11 +31,21 @@ import Servant
 import qualified Servant.Auth as SA
 import Servant.Auth.Server
 import System.Log.FastLogger
+import Server.DB
+import Data.UUID.V4
 
-authCheck :: Pool Connection
+lookupUser :: ConnectionPool
+           -> BS.ByteString -- login
+           -> BS.ByteString -- password hash
+           -> IO (Maybe AuthenticatedUser)
+lookupUser connPool username password = flip runSqlPool connPool $ do
+    mEntity <- getBy $ UserLoginPassword (E.decodeUtf8 username) (E.decodeUtf8 password) -- TODO: these decodeUtf8 calls aren't ment to be there
+    return $ AUser . userUuid . entityVal <$> mEntity
+
+authCheck :: ConnectionPool
           -> BasicAuthData
           -> IO (AuthResult AuthenticatedUser)
-authCheck connPool (BasicAuthData username password) = return $ maybe Indefinite Authenticated $ M.lookup (username, password) connPool
+authCheck connPool (BasicAuthData username password) = maybe Indefinite Authenticated <$> lookupUser connPool username password
 
 type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 
@@ -42,6 +57,7 @@ type API = API' (Auth '[SA.JWT, SA.BasicAuth] AuthenticatedUser)
 data AppContext = AppContext
     { _logFn :: LogStr -> IO ()
     , _config :: Config
+    , _connPool :: ConnectionPool
     }
 
 type HandlerT = ReaderT AppContext Handler
@@ -69,7 +85,7 @@ server3 = position
           private :: AuthResult AuthenticatedUser -> HandlerT PrivateInfo
           private (Authenticated user) = do
               log <- asks _logFn
-              liftIO $ log $ "Logged in as " <> toLogStr (show (auID user))
+              liftIO $ log $ "Logged in as userid:" <> toLogStr (show (auID user))
               return . PrivateInfo $ auID user
           private _ = do
               log <- asks _logFn
@@ -81,12 +97,12 @@ readJWK keyPath = eitherDecodeFileStrict' keyPath >>= either
     (error . ("Error while reading key file: " ++) . show)
     return
 
-mkApp :: Pool Connection -> AppContext -> IO Application
-mkApp connPool appctx = do
+mkApp :: AppContext -> IO Application
+mkApp appctx = do
     jwk <- readJWK $ keyPath $ _config appctx
     _logFn appctx $ toLogStr $ encode jwk
     let jwtCfg = (defaultJWTSettings jwk) { jwtAlg = Just ES256 }
-        authCfg = authCheck connPool
+        authCfg = authCheck $ _connPool appctx
         cfg = jwtCfg :. defaultCookieSettings :. authCfg :. EmptyContext
         ctx = getCtxProxy cfg
     return $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) server3
@@ -97,6 +113,15 @@ mkApp connPool appctx = do
 
 serverMain :: Logger -> Maybe FilePath -> IO ()
 serverMain logger mConfigPath = do
-    connPool <- initConnPool
-    config <- loadConfig mConfigPath
-    run 8081 =<< mkApp connPool (AppContext (pushLog logger) config)
+    let logFn = pushLog logger
+    connPool <- createConnectionPool connectionString defaultPoolSize logFn
+    uuid <- nextRandom
+    flip runSqlPool connPool $ do
+        runMigration migrateAll
+        -- WARNING: for test purposes only!!
+        mUser <- getBy $ UserLoginPassword "user1" "11"
+        when (isNothing mUser) $ do
+            Database.Persist.Sql.insert $ User "user1" "11" uuid
+            return ()
+    config <- loadServerConfig mConfigPath
+    run 8081 =<< mkApp (AppContext (pushLog logger) config connPool)

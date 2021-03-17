@@ -16,8 +16,8 @@ newtype Config = Config
 
 instance FromJSON Config
 
-loadConfig :: Maybe FilePath -> IO Config
-loadConfig mConfigPath = do
+loadServerConfig :: Maybe FilePath -> IO Config
+loadServerConfig mConfigPath = do
     let path = fromMaybe defaultConfigPath mConfigPath
     decodeFileEither path >>= either
         (error . ("Error while parsing the config file: "++) . show)

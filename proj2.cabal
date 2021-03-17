@@ -60,6 +60,8 @@ executable proj2
     , Log
     , Server
     , Server.Config
+    , Server.DB
+    , Server.PersistInstances
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -69,18 +71,26 @@ executable proj2
       base >=4.12 && <4.13
     , aeson
     , bytestring
+    , composition
+    , conduit
     , containers
     , fast-logger
     , http-client
     , jose
+    , monad-logger
     , mtl
     , optparse-generic
+    , persistent
+    , persistent-postgresql
+    , persistent-template
     , servant
     , servant-server
     , servant-client
     , servant-auth
     , servant-auth-server
+    , text
     , utf8-string
+    , uuid
     , warp
     , yaml
 
