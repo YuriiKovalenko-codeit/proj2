@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Server.PersistInstances where
 
 import Data.Text
 import Data.UUID
 import Database.Persist.Class
 import Database.Persist.Sql
+import Database.Persist.TH
+import Data.Password
 
 instance PersistField UUID where
     toPersistValue = toPersistValue . toText
@@ -16,3 +19,5 @@ instance PersistField UUID where
 
 instance PersistFieldSql UUID where
     sqlType _ = SqlString
+
+derivePersistField "PassHash"

@@ -5,9 +5,14 @@ module API where
 
 import DomainSpecific
 
+import Data.Text
+import Data.UUID
 import Servant
 
-type API' auth = "position" :> Capture "x" Int :> Capture "y" Int :> Get '[JSON] Position
-            :<|> "hello" :> QueryParam "name" String :> Get '[JSON] HelloMessage
-            :<|> "marketing" :> ReqBody '[JSON] ClientInfo :> Post '[JSON] Email
-            :<|> "private" :> auth :> Get '[JSON] PrivateInfo
+type BasicAuth' = BasicAuth "some-realm" AuthenticatedUser
+
+type API' auth = "profile" :> Capture "login" Text :> Get '[JSON] ProfileInfo
+            :<|> BasicAuth' :> "login" :> Get '[JSON] AuthenticatedUser 
+            :<|> auth :> "private" :> Get '[JSON] AuthenticatedUser
+            :<|> "users" :> ReqBody '[JSON] RegisterRequest :> Post '[JSON] ProfileInfo
+            :<|> "user" :> Capture "id" UUID :> Get '[JSON] ProfileInfo

@@ -80,6 +80,7 @@ executable proj2
     , monad-logger
     , mtl
     , optparse-generic
+    , password
     , persistent
     , persistent-postgresql
     , persistent-template

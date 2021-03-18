@@ -11,7 +11,7 @@ import Server
 import Prelude hiding (log)
 import Options.Generic
 
-data LaunchMode = Client { username :: String, password :: String }
+data LaunchMode = Client { username :: Text, password :: Text }
                 | Server { configPath :: Maybe FilePath }
                 | KeyGen { output :: FilePath }
     deriving Generic

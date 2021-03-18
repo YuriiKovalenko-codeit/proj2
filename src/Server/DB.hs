@@ -9,10 +9,9 @@ module Server.DB where
 
 import Server.PersistInstances
 
-import DomainSpecific
-
-import Data.ByteString.Char8 as BS8
 import Data.Composition
+import Data.Maybe
+import Data.Password
 import qualified Data.Text as T
 import Data.UUID
 import Database.Persist.Sql.Types.Internal
@@ -26,10 +25,10 @@ import qualified Database.Persist.Postgresql as P
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 User
     login T.Text
-    passwordHash T.Text
+    passwordHash PassHash
     uuid UUID
-    UserLoginPassword login passwordHash
-    UserUUID uuid
+    UniqueLogin login
+    UniqueUUID uuid
 |]
 
 connectionString :: ConnectionString
@@ -44,6 +43,10 @@ createConnectionPool :: ConnectionString
                      -> IO ConnectionPool
 createConnectionPool connStr poolSize logFn = runLoggingT (createPostgresqlPool connStr poolSize) (logFn .:: defaultLogStr)
 
+userWithLoginExists :: MonadIO m
+                    => T.Text -- login
+                    -> ReaderT SqlBackend m Bool
+userWithLoginExists login = fmap isJust $ getBy $ UniqueLogin login
 
 -- WARNING next some playground code goes, will be deleted later
 
