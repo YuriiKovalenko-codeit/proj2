@@ -110,13 +110,13 @@ getUpdatesList ProfileUpdInfo {..} = Prelude.concat
         updateForField field (Just v) = [field =. v]
         updateForField _ _ = []
 
-server3 :: CookieSettings -> JWTSettings -> ServerT API HandlerT
-server3 cookieSettings jwtSetting = getProfileByLogin
-                               :<|> loginUser cookieSettings jwtSetting
-                               :<|> private
-                               :<|> register
-                               :<|> getProfileByID
-                               :<|> updateProfile
+server3 :: JWTSettings -> ServerT API HandlerT
+server3 jwtSetting = getProfileByLogin
+                :<|> loginUser jwtSetting
+                :<|> private
+                :<|> register
+                :<|> getProfileByID
+                :<|> updateProfile
 
     where
         reportError :: ServerError -> LogStr -> HandlerT a
@@ -125,17 +125,14 @@ server3 cookieSettings jwtSetting = getProfileByLogin
             liftIO $ log msg
             throwAll err
 
-        loginUser :: CookieSettings -> JWTSettings -> AuthResult AuthenticatedUser -> HandlerT LoginRespWithCookies
-        loginUser cookieSettings jwtSettings (Authenticated user@(AUser uuid)) = do
+        loginUser :: JWTSettings -> AuthResult AuthenticatedUser -> HandlerT LoginResponse
+        loginUser jwtSettings (Authenticated user@(AUser uuid)) = do
             log <- asks _logFn
-            liftIO (acceptLogin cookieSettings jwtSettings user) >>= \case
-                Nothing -> throwAll err401
-                Just applyCookies -> do
-                    liftIO $ log $ "Logged in as userid:" <> toLogStr (show uuid)
-                    liftIO (makeJWT user jwtSetting Nothing) >>= \case
-                        Left err -> reportError err500 "Failed to make a JWT"
-                        Right jwt -> return . applyCookies $ LoginResponse uuid $ T.decodeUtf8 $ BL.toStrict jwt
-        loginUser _ _ _ = reportError err401 "Wrong login attempt"
+            liftIO $ log $ "Logged in as userid:" <> toLogStr (show uuid)
+            liftIO (makeJWT user jwtSetting Nothing) >>= \case
+                Left err -> reportError err500 "Failed to make a JWT"
+                Right jwt -> return $ LoginResponse uuid $ T.decodeUtf8 $ BL.toStrict jwt
+        loginUser _ _ = reportError err401 "Wrong login attempt"
 
         private :: AuthResult AuthenticatedUser -> HandlerT NoContent
         private (Authenticated _) = return NoContent
@@ -188,7 +185,7 @@ mkApp appctx = do
         connPool = _connPool appctx
         cfg = jwtCfg :. cookieCfg :. basicAuthCheck connPool :. authCheck connPool :. EmptyContext
         ctx = getCtxProxy cfg
-    return $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) $ server3 cookieCfg jwtCfg
+    return $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) $ server3 jwtCfg
 
     where
         getCtxProxy :: Servant.Context a -> Proxy a

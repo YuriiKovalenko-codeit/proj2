@@ -11,10 +11,8 @@ import Servant
 import Servant.Auth as SA
 import Servant.Auth.Server
 
-type LoginRespWithCookies = Headers '[Header "Set-Cookie" SetCookie, Header "Set-Cookie" SetCookie] LoginResponse
-
 type API' loginAuth commonAuth = "profile" :> Capture "login" Text :> Get '[JSON] ProfileInfo
-                            :<|> "login" :> loginAuth :> Get '[JSON] LoginRespWithCookies
+                            :<|> "login" :> loginAuth :> Post '[JSON] LoginResponse
                             :<|> "private" :> commonAuth :> Get '[JSON] NoContent
                             :<|> "users" :> ReqBody '[JSON] RegisterRequest :> Post '[JSON] ProfileInfo
                             :<|> "user" :> Capture "id" UUID :> Get '[JSON] ProfileInfo

@@ -1,2 +1,3 @@
-.stack_work
+.stack_work/
+stack.yaml.lock
 bin/proj2
