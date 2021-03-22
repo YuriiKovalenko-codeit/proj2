@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -21,9 +22,11 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Crypto.JOSE
 import Data.Aeson
+import Data.ByteString.Lazy as BL
 import Data.Maybe
 import Data.Password
 import Data.Text as T
+import Data.Text.Encoding as T
 import Data.UUID
 import Data.UUID.V4
 import Database.Persist
@@ -60,7 +63,10 @@ type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 instance FromBasicAuthData AuthenticatedUser where
     fromBasicAuthData authData authCheckFunction = authCheckFunction authData
 
-type API = API' (Auth '[SA.JWT, SA.BasicAuth] AuthenticatedUser)
+type LoginAuth = Auth '[SA.BasicAuth] AuthenticatedUser
+type CommonAuth = Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser
+
+type API = API' LoginAuth CommonAuth
 
 data AppContext = AppContext
     { _logFn :: LogStr -> IO ()
@@ -93,33 +99,51 @@ createUser login passhash = do
 getUserProfileInfo :: User -> ProfileInfo
 getUserProfileInfo User { userLogin = login, userUuid = userID } = ProfileInfo { .. }
 
-server3 :: ServerT API HandlerT
-server3 = getProfileByLogin
-     :<|> loginUser
-     :<|> private
-     :<|> register
-     :<|> getProfileByID
+-- should be updated every time when ProfileInfo gets a new field
+-- maybe there's a better way to do this
+getUpdatesList :: ProfileUpdateInfo -> [Update User]
+getUpdatesList ProfileUpdInfo {..} = Prelude.concat
+    [ updateForField UserLogin newLogin
+    , updateForField UserPasswordHash (hashPassword <$> newPassword)
+    ]
+    where
+        updateForField field (Just v) = [field =. v]
+        updateForField _ _ = []
+
+server3 :: CookieSettings -> JWTSettings -> ServerT API HandlerT
+server3 cookieSettings jwtSetting = getProfileByLogin
+                               :<|> loginUser cookieSettings jwtSetting
+                               :<|> private
+                               :<|> register
+                               :<|> getProfileByID
+                               :<|> updateProfile
 
     where
-        private :: AuthResult AuthenticatedUser -> HandlerT AuthenticatedUser
-        private (Authenticated user) = do
+        reportError :: ServerError -> LogStr -> HandlerT a
+        reportError err msg = do
             log <- asks _logFn
-            liftIO $ log $ "Logged in as userid:" <> toLogStr (show (auID user))
-            return . AUser $ auID user
-        private _ = do
-            log <- asks _logFn
-            liftIO $ log "Login attempt failed"
-            throwAll err401
+            liftIO $ log msg
+            throwAll err
 
-        loginUser :: AuthenticatedUser -> HandlerT AuthenticatedUser
-        loginUser user = do
+        loginUser :: CookieSettings -> JWTSettings -> AuthResult AuthenticatedUser -> HandlerT LoginRespWithCookies
+        loginUser cookieSettings jwtSettings (Authenticated user@(AUser uuid)) = do
             log <- asks _logFn
-            liftIO $ log $ "Logged in as userid:" <> toLogStr (show (auID user))
-            return . AUser $ auID user
+            liftIO (acceptLogin cookieSettings jwtSettings user) >>= \case
+                Nothing -> throwAll err401
+                Just applyCookies -> do
+                    liftIO $ log $ "Logged in as userid:" <> toLogStr (show uuid)
+                    liftIO (makeJWT user jwtSetting Nothing) >>= \case
+                        Left err -> reportError err500 "Failed to make a JWT"
+                        Right jwt -> return . applyCookies $ LoginResponse uuid $ T.decodeUtf8 $ BL.toStrict jwt
+        loginUser _ _ _ = reportError err401 "Wrong login attempt"
+
+        private :: AuthResult AuthenticatedUser -> HandlerT NoContent
+        private (Authenticated _) = return NoContent
+        private _ = reportError err401 "private: unauthorized access attempt"
 
         register :: RegisterRequest -> HandlerT ProfileInfo
         register (RegRequest login password) =
-            maybe (throwAll err409) return =<< runOnPool (do
+            maybe (reportError err409 "confliciting registration") return =<< runOnPool (do
                 exists <- userWithLoginExists login
                 if exists
                 then return Nothing
@@ -129,7 +153,7 @@ server3 = getProfileByLogin
 
         getProfileBy :: Unique User -> HandlerT ProfileInfo
         getProfileBy uniqueConstr =
-            maybe (throwAll err404) return =<< runOnPool (do
+            maybe (reportError err404 "query of non-existent user's profile") return =<< runOnPool (do
                 mEntity <- getBy uniqueConstr
                 return $ getUserProfileInfo . entityVal <$> mEntity)
 
@@ -138,6 +162,17 @@ server3 = getProfileByLogin
 
         getProfileByID :: UUID -> HandlerT ProfileInfo
         getProfileByID = getProfileBy . UniqueUUID
+
+        updateProfile :: AuthResult AuthenticatedUser -> ProfileUpdateInfo -> HandlerT NoContent
+        updateProfile (Authenticated (AUser uuid)) updInfo@ProfileUpdInfo {..} =
+            maybe (reportError err409 "conflicting login update") return =<< runOnPool (do
+                loginConflict <- maybe (return False) userWithLoginExists newLogin
+                if loginConflict
+                then return Nothing
+                else do
+                    updateWhere [UserUuid ==. uuid] $ getUpdatesList updInfo
+                    return $ Just NoContent)
+        updateProfile _ _ = reportError err401 "Unauthorized profile edit attempt"
 
 readJWK :: FilePath -> IO JWK
 readJWK keyPath = eitherDecodeFileStrict' keyPath >>= either
@@ -149,10 +184,11 @@ mkApp appctx = do
     jwk <- readJWK $ keyPath $ _config appctx
     _logFn appctx $ toLogStr $ encode jwk
     let jwtCfg = (defaultJWTSettings jwk) { jwtAlg = Just ES256 }
+        cookieCfg = defaultCookieSettings
         connPool = _connPool appctx
-        cfg = jwtCfg :. defaultCookieSettings :. basicAuthCheck connPool :. authCheck connPool :. EmptyContext
+        cfg = jwtCfg :. cookieCfg :. basicAuthCheck connPool :. authCheck connPool :. EmptyContext
         ctx = getCtxProxy cfg
-    return $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) server3
+    return $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) $ server3 cookieCfg jwtCfg
 
     where
         getCtxProxy :: Servant.Context a -> Proxy a

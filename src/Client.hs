@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Client where
 
@@ -6,20 +7,38 @@ import API
 import AuthData
 import DomainSpecific
 
-import Data.ByteString.UTF8
+import qualified Data.ByteString as BS
+import qualified Data.List as L
 import Data.Proxy
+import Data.Text.Encoding as T
 import Network.HTTP.Client (newManager, defaultManagerSettings)
 import Servant.Client
-import Servant.API
+import Servant.API as SAPI
+import Servant.Auth as SA
+import Servant.Auth.Client
 
-type API = API' (BasicAuth "test-realm" AuthenticatedUser)
+--type Auth' = BasicAuth "some-realm" AuthenticatedUser
+type LoginAuth = SAPI.BasicAuth "some-realm" AuthenticatedUser
+type CommonAuth = Auth '[SA.BasicAuth, Bearer] AuthenticatedUser 
+type API = API' LoginAuth CommonAuth
 
 api :: Proxy API
 api = Proxy
 
-position :<|> hello :<|> marketing :<|> private :<|> register = undefined--client api
+--               "profile" :> Capture "login" Text :> Get '[JSON] ProfileInfo
+--          :<|> "login" :> loginAuth :> Get '[JSON] AuthenticatedUser 
+--          :<|> "private" :> commonAuth :> Get '[JSON] NoContent
+--          :<|> "users" :> ReqBody '[JSON] RegisterRequest :> Post '[JSON] ProfileInfo
+--          :<|> "user" :> Capture "id" UUID :> Get '[JSON] ProfileInfo
+--          :<|> "user" :> commonAuth :> ReqBody '[JSON] ProfileUpdateInfo :> Put '[JSON] NoContent
+--position :<|> hello :<|> marketing :<|> private :<|> register = undefined--client api
+getProfileByLogin :<|> loginUser :<|> private :<|> register :<|> getProfileByID :<|> updateUser = client api
 
-queries = undefined
+queries :: AuthData -> ClientM ()
+queries authData = do
+    (Headers (LoginResponse uuid token) _) <- loginUser $ authToBasicData authData
+    private $ Token $ T.encodeUtf8 token
+    return ()
 
 clientMain :: AuthData -> IO ()
 clientMain authData = do

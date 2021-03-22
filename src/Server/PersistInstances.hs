@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 module Server.PersistInstances where
 
 import Data.Text
@@ -20,4 +19,11 @@ instance PersistField UUID where
 instance PersistFieldSql UUID where
     sqlType _ = SqlString
 
-derivePersistField "PassHash"
+instance PersistField PassHash where
+    toPersistValue = toPersistValue . unPassHash
+    fromPersistValue v = either
+        (const $ Left $ pack $ "Expected PersistText, got: " ++ show v)
+        (Right . PassHash) $ fromPersistValue v
+
+instance PersistFieldSql PassHash where
+    sqlType _ = SqlString

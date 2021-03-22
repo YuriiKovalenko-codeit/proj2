@@ -85,10 +85,11 @@ executable proj2
     , persistent-postgresql
     , persistent-template
     , servant
-    , servant-server
-    , servant-client
     , servant-auth
+    , servant-auth-client
     , servant-auth-server
+    , servant-client
+    , servant-server
     , text
     , utf8-string
     , uuid
