@@ -4,18 +4,15 @@
 
 module API where
 
+import API.Types
 import Data.Text
-import Data.UUID
-import DomainSpecific
-import Servant
-import Servant.Auth as SA
-import Servant.Auth.Server
+import Servant.API
 
 -- TODO: unnescessary type parameters. Move type param values here and make complete API definition here.
 type API' loginAuth commonAuth =
   "profile" :> Capture "login" Text :> Get '[JSON] ProfileInfo
     :<|> "login" :> loginAuth :> Post '[JSON] LoginResponse
-    :<|> "private" :> commonAuth :> Get '[JSON] NoContent -- TODO: what is the function of this endpoint.
-    :<|> "users" :> ReqBody '[JSON] RegisterRequest :> Post '[JSON] ProfileInfo -- TODO: Not a single user should be able to get other users profiles.
-    :<|> "user" :> Capture "id" UUID :> Get '[JSON] ProfileInfo -- TODO: you can get UserId from AuthResult. `Capture "id" UUID` could be removed.
+    :<|> "auth-test" :> commonAuth :> Get '[JSON] NoContent -- TODO: what is the function of this endpoint.
+    :<|> "register" :> ReqBody '[JSON] RegisterRequest :> Post '[JSON] ProfileInfo
+    :<|> "user" :> commonAuth :> Get '[JSON] ProfileInfo
     :<|> "user" :> commonAuth :> ReqBody '[JSON] ProfileUpdateInfo :> Put '[JSON] NoContent

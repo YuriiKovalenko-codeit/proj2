@@ -12,29 +12,28 @@ module Server where
 
 import API
 import AuthData
-import Conduit
-import Control.Monad.Except
+import AuthenticatedUser
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Crypto.JOSE
 import Data.Aeson
-import Data.ByteString.Lazy as BL
-import Data.Maybe
 import Data.Password
-import Data.Text as T
-import Data.Text.Encoding as T
-import Data.UUID
-import Data.UUID.V4
 import Database.Persist
 import Database.Persist.Sql
-import DomainSpecific
 import Log
 import Network.Wai.Handler.Warp
-import Servant
+import Servant hiding (Unique)
 import qualified Servant.Auth as SA
 import Servant.Auth.Server
 import Server.Config
 import Server.DB
+import Server.Endpoints.AuthTest
+import Server.Endpoints.Login
+import Server.Endpoints.PrivateProfile
+import Server.Endpoints.PublicProfile
+import Server.Endpoints.Register
+import Server.Endpoints.UpdateProfile
+import Server.Types
 
 lookupUser ::
   ConnectionPool ->
@@ -70,134 +69,23 @@ type CommonAuth = Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser
 
 type API = API' LoginAuth CommonAuth
 
-data AppContext = AppContext
-  { _logFn :: LogStr -> IO (),
-    _config :: Config,
-    _connPool :: ConnectionPool
-  }
-
-type HandlerT = ReaderT AppContext Handler
-
 api :: Proxy API
 api = Proxy
-
--- TODO: Salt should be moved to config file
-defaultSalt :: Salt
-defaultSalt = Salt "proj2salt"
-
-hashPassword :: T.Text -> PassHash
-hashPassword password = hashPassWithSalt (Pass password) defaultSalt
-
-runOnPool :: (MonadIO m) => ReaderT SqlBackend (NoLoggingT (ResourceT IO)) a -> ReaderT AppContext m a
-runOnPool action = do
-  connPool <- asks _connPool
-  liftIO $ runSqlPersistMPool action connPool
-
--- TODO: DB methods should live in appropriate module
-createUser :: (MonadIO m) => T.Text -> PassHash -> ReaderT SqlBackend m UUID
-createUser login passhash = do
-  uuid <- liftIO nextRandom
-  insert $ User login passhash uuid
-  return uuid
-
-getUserProfileInfo :: User -> ProfileInfo
-getUserProfileInfo User {userLogin = login, userUuid = userID} = ProfileInfo {..}
-
--- should be updated every time when ProfileInfo gets a new field
--- maybe there's a better way to do this
-getUpdatesList :: ProfileUpdateInfo -> [Update User]
-getUpdatesList ProfileUpdInfo {..} =
-  Prelude.concat
-    [ updateForField UserLogin newLogin,
-      updateForField UserPasswordHash (hashPassword <$> newPassword)
-    ]
-  where
-    updateForField field (Just v) = [field =. v]
-    updateForField _ _ = []
 
 -- TOOD: Split endpoint implementations into separate andpoints modules
 server3 :: JWTSettings -> ServerT API HandlerT
 server3 jwtSetting =
-  getProfileByLogin
+  getPublicProfile
     :<|> loginUser jwtSetting
-    :<|> private
+    :<|> authTest
     :<|> register
-    :<|> getProfileByID
+    :<|> getPrivateProfile
     :<|> updateProfile
-  where
-    reportError :: ServerError -> LogStr -> HandlerT a
-    reportError err msg = do
-      log <- asks _logFn
-      liftIO $ log msg
-      throwAll err
-
-    loginUser :: JWTSettings -> AuthResult AuthenticatedUser -> HandlerT LoginResponse
-    loginUser jwtSettings (Authenticated user@(AUser uuid)) = do
-      log <- asks _logFn
-      liftIO $ log $ "Logged in as userid:" <> toLogStr (show uuid)
-      liftIO (makeJWT user jwtSetting Nothing) >>= \case
-        Left err -> reportError err500 "Failed to make a JWT"
-        Right jwt -> return $ LoginResponse uuid $ T.decodeUtf8 $ BL.toStrict jwt
-    loginUser _ _ = reportError err401 "Wrong login attempt"
-
-    private :: AuthResult AuthenticatedUser -> HandlerT NoContent
-    private (Authenticated _) = return NoContent
-    private _ = reportError err401 "private: unauthorized access attempt"
-
-    register :: RegisterRequest -> HandlerT ProfileInfo
-    register (RegRequest login password) =
-      maybe (reportError err409 "confliciting registration") return
-        =<< runOnPool
-          ( do
-              exists <- userWithLoginExists login
-              if exists
-                then return Nothing
-                else do
-                  uuid <- createUser login (hashPassword password)
-                  return $ Just $ ProfileInfo login uuid
-          )
-
-    getProfileBy :: Unique User -> HandlerT ProfileInfo
-    getProfileBy uniqueConstr =
-      maybe (reportError err404 "query of non-existent user's profile") return
-        =<< runOnPool
-          ( do
-              mEntity <- getBy uniqueConstr
-              return $ getUserProfileInfo . entityVal <$> mEntity
-          )
-
-    getProfileByLogin :: Text -> HandlerT ProfileInfo
-    getProfileByLogin = getProfileBy . UniqueLogin
-
-    getProfileByID :: UUID -> HandlerT ProfileInfo
-    getProfileByID = getProfileBy . UniqueUUID
-
-    updateProfile :: AuthResult AuthenticatedUser -> ProfileUpdateInfo -> HandlerT NoContent
-    updateProfile (Authenticated (AUser uuid)) updInfo@ProfileUpdInfo {..} =
-      maybe (reportError err409 "conflicting login update") return
-        =<< runOnPool
-          ( do
-              loginConflict <- maybe (return False) userWithLoginExists newLogin
-              if loginConflict
-                then return Nothing
-                else do
-                  updateWhere [UserUuid ==. uuid] $ getUpdatesList updInfo
-                  return $ Just NoContent
-          )
-    updateProfile _ _ = reportError err401 "Unauthorized profile edit attempt"
-
--- TODO: Should be moved closer to configuration processing functionality module.
-readJWK :: FilePath -> IO JWK
-readJWK keyPath =
-  eitherDecodeFileStrict' keyPath
-    >>= either
-      (error . ("Error while reading key file: " ++) . show)
-      return
 
 -- TODO: Split Servant Server implementation and Application creation.
 mkApp :: AppContext -> IO Application
 mkApp appctx = do
-  jwk <- readJWK $ keyPath $ _config appctx
+  jwk <- loadJWK $ keyPath $ _config appctx
   _logFn appctx $ toLogStr $ encode jwk
   let jwtCfg = (defaultJWTSettings jwk) {jwtAlg = Just ES256}
       cookieCfg = defaultCookieSettings
@@ -209,17 +97,14 @@ mkApp appctx = do
     getCtxProxy :: Servant.Context a -> Proxy a
     getCtxProxy _ = Proxy
 
-serverMain :: Logger -> Maybe FilePath -> IO ()
-serverMain logger mConfigPath = do
+serverMain :: Maybe FilePath -> IO ()
+serverMain mConfigPath = do
+  (logger, cleanupLogger) <- initLogger
   let logFn = pushLog logger
   connPool <- createConnectionPool connectionString defaultPoolSize logFn
   flip runSqlPool connPool $ do
     runMigration migrateAll
-    -- WARNING: for test purposes only!!
-    mUser <- getBy $ UniqueLogin "user1"
-    when (isNothing mUser) $ do
-      createUser "user1" (hashPassword "11")
-      return ()
   config <- loadServerConfig mConfigPath
   -- TODO: port should go to config
   run 8081 =<< mkApp (AppContext (pushLog logger) config connPool)
+  cleanupLogger
