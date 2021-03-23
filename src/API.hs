@@ -11,7 +11,7 @@ import Servant
 import Servant.Auth as SA
 import Servant.Auth.Server
 
--- TODO: unnescessary type operators. Move type param values here and make complete API definition here.
+-- TODO: unnescessary type parameters. Move type param values here and make complete API definition here.
 type API' loginAuth commonAuth =
   "profile" :> Capture "login" Text :> Get '[JSON] ProfileInfo
     :<|> "login" :> loginAuth :> Post '[JSON] LoginResponse
