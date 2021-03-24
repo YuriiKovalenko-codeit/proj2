@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ddf46ff6b5204668acff9e09e4da8f9cdb8d86bcd082aac13877cedf332b7268
+-- hash: 96ebbf21390fe622c7b90bd2522af77afb40b955d5b90b73649a52d21be8efc5
 
 name:           proj2
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
       Keygen
       Log
       Server
+      Server.Auth
       Server.Config
       Server.DB
       Server.Endpoints.AuthTest
