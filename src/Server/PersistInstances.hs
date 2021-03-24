@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Server.PersistInstances where
 
 import Data.Password

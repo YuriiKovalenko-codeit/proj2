@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Server.Endpoints.PrivateProfile where
 
 import API.Types

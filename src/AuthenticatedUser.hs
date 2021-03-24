@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module AuthenticatedUser where
 
 import Data.Aeson

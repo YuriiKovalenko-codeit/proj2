@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module AuthData where
 
 import Data.Text

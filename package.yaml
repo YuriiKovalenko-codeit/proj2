@@ -29,6 +29,23 @@ dependencies:
 - wai
 - warp
 
+default-extensions:
+- DataKinds
+- DeriveGeneric
+- DuplicateRecordFields
+- FlexibleInstances
+- GADTs
+- GeneralizedNewtypeDeriving
+- LambdaCase
+- MultiParamTypeClasses
+- OverloadedStrings
+- RankNTypes
+- RecordWildCards
+- ScopedTypeVariables
+- StandaloneDeriving
+- TypeFamilies
+- TypeOperators
+
 library:
   source-dirs: src
   dependencies:

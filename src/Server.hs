@@ -1,16 +1,6 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-
 module Server where
 
-import API
+import API.Server
 import AuthData
 import AuthenticatedUser
 import Control.Monad.Logger
@@ -63,16 +53,6 @@ type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 instance FromBasicAuthData AuthenticatedUser where
   fromBasicAuthData authData authCheckFunction = authCheckFunction authData
 
-type LoginAuth = Auth '[SA.BasicAuth] AuthenticatedUser
-
-type CommonAuth = Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser
-
-type API = API' LoginAuth CommonAuth
-
-api :: Proxy API
-api = Proxy
-
--- TOOD: Split endpoint implementations into separate andpoints modules
 server3 :: JWTSettings -> ServerT API HandlerT
 server3 jwtSetting =
   getPublicProfile

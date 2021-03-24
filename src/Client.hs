@@ -3,7 +3,7 @@
 
 module Client where
 
-import API
+import API.Client
 import API.Types
 import AuthData
 import AuthenticatedUser
@@ -16,15 +16,6 @@ import Servant.API as SAPI
 import Servant.Auth as SA
 import Servant.Auth.Client
 import Servant.Client
-
-type LoginAuth = SAPI.BasicAuth "some-realm" AuthenticatedUser
-
-type CommonAuth = Auth '[SA.BasicAuth, Bearer] AuthenticatedUser
-
-type API = API' LoginAuth CommonAuth
-
-api :: Proxy API
-api = Proxy
 
 getProfileByLogin :<|> loginUser :<|> private :<|> register :<|> getProfileByID :<|> updateUser = client api
 

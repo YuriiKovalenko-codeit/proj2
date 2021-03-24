@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Server.Endpoints.AuthTest where
 
 import AuthenticatedUser
