@@ -1,1 +1,2 @@
 keyPath: key.json
+dbConnectionString: "postgresql://postgres:password@localhost:5432/postgres"

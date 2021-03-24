@@ -49,10 +49,9 @@ serverMain :: Maybe FilePath -> IO ()
 serverMain mConfigPath = do
   (logger, cleanupLogger) <- initLogger
   let logFn = pushLog logger
-  connPool <- createConnectionPool connectionString defaultPoolSize logFn
+  config <- loadServerConfig mConfigPath
+  connPool <- createConnectionPool (dbConnectionString config) (dbConnPoolSize config) logFn
   flip runSqlPool connPool $ do
     runMigration migrateAll
-  config <- loadServerConfig mConfigPath
-  -- TODO: port should go to config
-  run 8081 =<< mkApp (AppContext (pushLog logger) config connPool)
+  run (port config) =<< mkApp (AppContext (pushLog logger) config connPool)
   cleanupLogger

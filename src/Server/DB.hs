@@ -30,12 +30,6 @@ User
     UniqueUUID uuid
 |]
 
-connectionString :: ConnectionString
-connectionString = "postgresql://postgres:password@localhost:5432/postgres"
-
-defaultPoolSize :: Int
-defaultPoolSize = 4
-
 createConnectionPool ::
   ConnectionString ->
   Int -> -- pool size
