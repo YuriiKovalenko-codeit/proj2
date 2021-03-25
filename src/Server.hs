@@ -7,7 +7,9 @@ import Crypto.JOSE
 import Data.Aeson
 import Database.Persist.Sql
 import Log
+import Network.Wai
 import Network.Wai.Handler.Warp
+import Network.Wai.Middleware.RequestLogger
 import Servant
 import Servant.Auth.Server
 import Server.Auth
@@ -19,6 +21,7 @@ import Server.Endpoints.PrivateProfile
 import Server.Endpoints.PublicProfile
 import Server.Endpoints.Register
 import Server.Endpoints.UpdateProfile
+import Server.Middleware
 import Server.Types
 
 server3 :: JWTSettings -> ServerT API HandlerT
@@ -53,5 +56,7 @@ serverMain mConfigPath = do
   connPool <- createConnectionPool (dbConnectionString config) (dbConnPoolSize config) logFn
   flip runSqlPool connPool $ do
     runMigration migrateAll
-  run (port config) =<< mkApp (AppContext (pushLog logger) config connPool)
+  middlewares <- mkMiddlewares
+  app <- mkApp (AppContext (pushLog logger) config connPool)
+  run (port config) $ chain middlewares app
   cleanupLogger
