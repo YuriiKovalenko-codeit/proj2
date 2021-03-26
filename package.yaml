@@ -1,0 +1,96 @@
+name:                proj2
+version:             0.1.0.0
+github:              "githubuser/proj2"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2021 Author name here"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/proj2#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- aeson
+- bytestring
+- jose
+- optparse-generic
+- servant-server
+- text
+- wai
+- warp
+
+default-extensions:
+- DataKinds
+- DeriveGeneric
+- DuplicateRecordFields
+- FlexibleInstances
+- GADTs
+- GeneralizedNewtypeDeriving
+- LambdaCase
+- MultiParamTypeClasses
+- OverloadedStrings
+- RankNTypes
+- RecordWildCards
+- ScopedTypeVariables
+- StandaloneDeriving
+- TypeFamilies
+- TypeOperators
+
+library:
+  source-dirs: src
+  dependencies:
+  - composition
+  - conduit
+  - fast-logger
+  - http-client
+  - monad-logger
+  - mtl
+  - password >= 0.1 && < 0.2
+  - persistent
+  - persistent-postgresql
+  - persistent-template
+  - servant
+  - servant-auth
+  - servant-auth-client
+  - servant-auth-server
+  - servant-client
+  - uuid
+  - yaml
+
+executables:
+  proj2-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - base
+    - proj2
+
+tests:
+  proj2-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - base
+    - proj2
+    - hspec
+    - hspec-wai
+    - hspec-wai-json
+    - aeson
