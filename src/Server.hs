@@ -12,6 +12,7 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.RequestLogger
 import Servant
 import Servant.Auth.Server
+import Servant.Swagger.UI
 import Server.Auth
 import Server.Config
 import Server.DB
@@ -26,7 +27,8 @@ import Server.Types
 
 server3 :: JWTSettings -> ServerT API HandlerT
 server3 jwtSetting =
-  getPublicProfile
+  swaggerSchemaUIServerT swaggerDoc
+    :<|> getPublicProfile
     :<|> loginUser jwtSetting
     :<|> authTest
     :<|> register
