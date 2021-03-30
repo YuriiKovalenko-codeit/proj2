@@ -45,20 +45,22 @@ mkApp appctx = do
       connPool = _connPool appctx
       cfg = jwtCfg :. cookieCfg :. basicAuthCheck connPool :. authCheck connPool :. EmptyContext
       ctx = getCtxProxy cfg
-  return $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) $ server3 jwtCfg
+  middlewares <- mkMiddlewares
+  return $ chain middlewares $ serveWithContext api cfg $ hoistServerWithContext api ctx (`runReaderT` appctx) $ server3 jwtCfg
   where
     getCtxProxy :: Servant.Context a -> Proxy a
     getCtxProxy _ = Proxy
 
-serverMain :: Maybe FilePath -> IO ()
-serverMain mConfigPath = do
-  (logger, cleanupLogger) <- initLogger
-  let logFn = pushLog logger
-  config <- loadServerConfig mConfigPath
-  connPool <- createConnectionPool (dbConnectionString config) (dbConnPoolSize config) logFn
+mkContext :: Config -> LogFn -> IO AppContext
+mkContext config log = do
+  connPool <- createConnectionPool (dbConnectionString config) (dbConnPoolSize config) log
   flip runSqlPool connPool $ do
     runMigration migrateAll
-  middlewares <- mkMiddlewares
-  app <- mkApp (AppContext (pushLog logger) config connPool)
-  run (port config) $ chain middlewares app
-  cleanupLogger
+  return $ AppContext log config connPool
+
+serverMain :: Maybe FilePath -> IO ()
+serverMain mConfigPath = do
+  config <- loadServerConfig mConfigPath
+  withLogFn $ \log -> do
+    ctx <- mkContext config log
+    run (port config) =<< mkApp ctx

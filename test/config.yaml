@@ -1,0 +1,3 @@
+keyPath: key.json
+dbConnectionString: "postgresql://postgres:password@localhost:5433/postgres"
+port: 8082

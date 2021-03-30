@@ -22,14 +22,20 @@ dependencies:
 - base >= 4.7 && < 5
 - aeson
 - bytestring
+- data-default
+- http-client
 - jose
 - optparse-generic
+- password >= 0.1 && < 0.2
+- persistent
 - servant-auth-swagger
+- servant-client
 - servant-server
 - servant-swagger
 - servant-swagger-ui
 - swagger2
 - text
+- uuid
 - wai
 - warp
 
@@ -40,6 +46,7 @@ default-extensions:
 - FlexibleInstances
 - GADTs
 - GeneralizedNewtypeDeriving
+- ImplicitParams
 - LambdaCase
 - MultiParamTypeClasses
 - OverloadedStrings
@@ -56,19 +63,14 @@ library:
   - composition
   - conduit
   - fast-logger
-  - http-client
   - monad-logger
   - mtl
-  - password >= 0.1 && < 0.2
-  - persistent
   - persistent-postgresql
   - persistent-template
   - servant
   - servant-auth
   - servant-auth-client
   - servant-auth-server
-  - servant-client
-  - uuid
   - wai-extra
   - yaml
 
@@ -96,6 +98,8 @@ tests:
     - base
     - proj2
     - hspec
+    - hspec-core
     - hspec-wai
     - hspec-wai-json
+    - process
     - aeson
