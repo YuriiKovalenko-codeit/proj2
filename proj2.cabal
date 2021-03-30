@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5cae01c97b71cc83cb63f4f4f7da0fe1104e457e9f4b31c380be56caef5a888c
+-- hash: a96c2e823927dab5002b2a23ffb9b7dc12c1db95c5366e70d2fc4445c843fc42
 
 name:           proj2
 version:        0.1.0.0
@@ -74,8 +74,12 @@ library
     , servant-auth
     , servant-auth-client
     , servant-auth-server
+    , servant-auth-swagger
     , servant-client
     , servant-server
+    , servant-swagger
+    , servant-swagger-ui
+    , swagger2
     , text
     , uuid
     , wai
@@ -100,7 +104,11 @@ executable proj2-exe
     , jose
     , optparse-generic
     , proj2
+    , servant-auth-swagger
     , servant-server
+    , servant-swagger
+    , servant-swagger-ui
+    , swagger2
     , text
     , wai
     , warp
@@ -125,7 +133,11 @@ test-suite proj2-test
     , jose
     , optparse-generic
     , proj2
+    , servant-auth-swagger
     , servant-server
+    , servant-swagger
+    , servant-swagger-ui
+    , swagger2
     , text
     , wai
     , warp

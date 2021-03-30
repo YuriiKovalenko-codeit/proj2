@@ -24,7 +24,11 @@ dependencies:
 - bytestring
 - jose
 - optparse-generic
+- servant-auth-swagger
 - servant-server
+- servant-swagger
+- servant-swagger-ui
+- swagger2
 - text
 - wai
 - warp
