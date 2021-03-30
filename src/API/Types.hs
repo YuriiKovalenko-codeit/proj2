@@ -1,6 +1,7 @@
 module API.Types where
 
 import Data.Aeson.Types
+import Data.Default
 import Data.Swagger.Schema
 import Data.Text
 import Data.UUID
@@ -35,6 +36,9 @@ data ProfileUpdateInfo = ProfileUpdInfo
     newPassword :: Maybe Text
   }
   deriving (Show, Generic)
+
+instance Default ProfileUpdateInfo where
+  def = ProfileUpdInfo Nothing Nothing
 
 instance ToJSON ProfileUpdateInfo
 

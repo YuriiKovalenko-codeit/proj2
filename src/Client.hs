@@ -6,18 +6,19 @@ module Client where
 import API.Client
 import API.Types
 import AuthData
-import AuthenticatedUser
 import qualified Data.ByteString as BS
 import qualified Data.List as L
-import Data.Proxy
+import Data.Text
 import Data.Text.Encoding as T
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Servant.API as SAPI
-import Servant.Auth as SA
 import Servant.Auth.Client
 import Servant.Client
 
 getProfileByLogin :<|> loginUser :<|> private :<|> register :<|> getProfileByID :<|> updateUser = client api
+
+tokenFromText :: Text -> Token
+tokenFromText = Token . T.encodeUtf8
 
 queries :: AuthData -> ClientM ()
 queries authData = do
