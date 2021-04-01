@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 96ebbf21390fe622c7b90bd2522af77afb40b955d5b90b73649a52d21be8efc5
+-- hash: 5cae01c97b71cc83cb63f4f4f7da0fe1104e457e9f4b31c380be56caef5a888c
 
 name:           proj2
 version:        0.1.0.0
@@ -46,6 +46,7 @@ library
       Server.Endpoints.Register
       Server.Endpoints.UpdateProfile
       Server.Helpers
+      Server.Middleware
       Server.PersistInstances
       Server.Types
   other-modules:
@@ -78,6 +79,7 @@ library
     , text
     , uuid
     , wai
+    , wai-extra
     , warp
     , yaml
   default-language: Haskell2010

@@ -65,6 +65,7 @@ library:
   - servant-auth-server
   - servant-client
   - uuid
+  - wai-extra
   - yaml
 
 executables:
